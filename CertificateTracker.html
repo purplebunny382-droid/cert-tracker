@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Tracker</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #21253a;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0; --muted: #6b7280;
+    --accent: #6366f1; --accent-light: #818cf8;
+    --green: #10b981; --green-bg: rgba(16,185,129,0.12);
+    --orange: #f59e0b; --orange-bg: rgba(245,158,11,0.12);
+    --red: #ef4444; --red-bg: rgba(239,68,68,0.12);
+    --blue: #3b82f6;
+    --radius: 10px; --radius-sm: 6px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: 14px; }
+  .app-layout { display: flex; flex: 1; overflow: hidden; }
+  .sidebar { width: 225px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px 12px; gap: 4px; flex-shrink: 0; overflow-y: auto; }
+  .sidebar-logo { font-size: 15px; font-weight: 600; color: var(--text); padding: 0 8px 16px; display: flex; align-items: center; gap: 8px; }
+  .sidebar-logo .icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .nav-item { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--muted); font-size: 13.5px; transition: all 0.15s; border: none; background: none; width: 100%; text-align: left; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(99,102,241,0.15); color: var(--accent-light); }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .filter-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 4px 10px; margin-top: 8px; }
+  .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+  .drive-section { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+  .drive-btn { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; border: none; width: 100%; text-align: left; }
+  .drive-btn.sync-btn { background: rgba(99,102,241,0.12); color: var(--accent-light); border: 1px solid rgba(99,102,241,0.25); }
+  .drive-btn.sync-btn:hover { background: rgba(99,102,241,0.2); }
+  .drive-btn.load-btn { background: var(--green-bg); color: var(--green); border: 1px solid rgba(16,185,129,0.25); }
+  .drive-btn.load-btn:hover { background: rgba(16,185,129,0.2); }
+  .drive-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .drive-status { font-size: 11.5px; color: var(--muted); padding: 2px 4px 4px; }
+
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .search-wrap { flex: 1; position: relative; }
+  .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--muted); pointer-events: none; }
+  .search-input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 12px 9px 34px; color: var(--text); font-size: 13.5px; outline: none; transition: border 0.15s; }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: var(--accent); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: var(--radius); font-size: 13.5px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #5558e8; }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border2); }
+  .btn-secondary:hover { background: var(--surface2); }
+  .btn svg { width: 15px; height: 15px; }
+
+  .stats-bar { padding: 16px 24px; display: flex; gap: 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .stat-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .stat-label { font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 600; }
+  .stat-card.total .stat-value { color: var(--text); }
+  .stat-card.received .stat-value { color: var(--blue); }
+  .stat-card.pending .stat-value { color: var(--orange); }
+  .stat-card.given .stat-value { color: var(--green); }
+
+  .export-bar { padding: 10px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .export-bar span { font-size: 12px; color: var(--muted); }
+  .export-actions { display: flex; gap: 8px; }
+
+  .table-wrap { flex: 1; overflow-y: auto; padding: 0 24px 24px; }
+  .table-wrap::-webkit-scrollbar { width: 6px; }
+  .table-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  thead th { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:hover { background: var(--surface); }
+  td { padding: 13px 12px; font-size: 13.5px; vertical-align: middle; }
+  .td-name { font-weight: 500; }
+  .td-reg { font-family: 'Consolas', monospace; font-size: 12.5px; color: var(--muted); }
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+  .badge-yes { background: var(--green-bg); color: var(--green); }
+  .badge-no { background: var(--surface2); color: var(--muted); }
+  .badge-pending { background: var(--orange-bg); color: var(--orange); }
+  .badge svg { width: 12px; height: 12px; }
+  .row-actions { display: flex; gap: 6px; }
+  .icon-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); border: 1px solid var(--border); background: none; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .icon-btn:hover { background: var(--surface2); color: var(--text); }
+  .icon-btn.del:hover { background: var(--red-bg); color: var(--red); border-color: rgba(239,68,68,0.3); }
+  .icon-btn svg { width: 14px; height: 14px; }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state svg { width: 40px; height: 40px; margin: 0 auto 12px; opacity: 0.3; display: block; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px; width: 520px; max-height: 88vh; overflow-y: auto; transform: scale(0.96) translateY(8px); transition: transform 0.2s; }
+  .modal-overlay.open .modal { transform: scale(1) translateY(0); }
+  .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 16px; font-weight: 600; }
+  .modal-close { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); background: none; border: none; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .modal-close:hover { background: var(--surface2); color: var(--text); }
+  .modal-close svg { width: 16px; height: 16px; }
+  .modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+  .modal-footer { padding: 16px 24px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+  .field input, .field textarea { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 11px; color: var(--text); font-size: 13.5px; outline: none; transition: border 0.15s; font-family: inherit; }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .field input::placeholder, .field textarea::placeholder { color: var(--muted); }
+  .field textarea { resize: vertical; min-height: 70px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surface2); border-radius: var(--radius); border: 1px solid var(--border); }
+  .toggle-info { display: flex; flex-direction: column; gap: 2px; }
+  .toggle-info span { font-size: 13.5px; font-weight: 500; }
+  .toggle-info small { font-size: 12px; color: var(--muted); }
+  .toggle { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-track { position: absolute; inset: 0; background: var(--surface); border: 1px solid var(--border2); border-radius: 12px; cursor: pointer; transition: background 0.2s; }
+  .toggle input:checked + .toggle-track { background: var(--green); border-color: var(--green); }
+  .toggle-track::after { content: ''; position: absolute; width: 18px; height: 18px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: transform 0.2s; }
+  .toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 11px 16px; font-size: 13.5px; display: flex; align-items: center; gap: 8px; z-index: 200; transform: translateY(60px); opacity: 0; transition: all 0.25s; max-width: 320px; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.error { border-color: rgba(239,68,68,0.3); }
+  .toast svg { width: 15px; height: 15px; color: var(--green); flex-shrink: 0; }
+  .toast.error svg { color: var(--red); }
+  .spinning { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="icon">🎓</div>
+      CertTracker
+    </div>
+    <div class="filter-label">View</div>
+    <button class="nav-item active" onclick="setFilter('all',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      All Students
+    </button>
+    <button class="nav-item" onclick="setFilter('not_received',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Not from Center
+    </button>
+    <button class="nav-item" onclick="setFilter('received_only',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>
+      Pending Delivery
+    </button>
+    <button class="nav-item" onclick="setFilter('fully_done',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+      Fully Done
+    </button>
+
+    <div class="sidebar-divider"></div>
+    <div class="drive-section">
+      <div class="filter-label" style="margin-top:0">Google Sheets Backup</div>
+      <div class="drive-status" id="syncStatus">Ready to sync</div>
+      <button class="drive-btn sync-btn" onclick="syncToSheets()" id="syncBtn">
+        <svg id="syncIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        Save to Sheets
+      </button>
+      <button class="drive-btn load-btn" onclick="loadFromSheets()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0018 9h-1.26A8 8 0 103 16.29"/></svg>
+        Load from Sheets
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" id="searchInput" type="text" placeholder="Search by name or registration number…" oninput="onSearch(this.value)">
+      </div>
+      <button class="btn btn-primary" onclick="openAddModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Student
+      </button>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-card total"><div class="stat-label">Total Students</div><div class="stat-value" id="statTotal">0</div></div>
+      <div class="stat-card received"><div class="stat-label">Received from Center</div><div class="stat-value" id="statReceived">0</div></div>
+      <div class="stat-card pending"><div class="stat-label">Pending Delivery</div><div class="stat-value" id="statPending">0</div></div>
+      <div class="stat-card given"><div class="stat-label">Given to Students</div><div class="stat-value" id="statGiven">0</div></div>
+    </div>
+
+    <div class="export-bar">
+      <span id="rowCount">0 records</span>
+      <div class="export-actions">
+        <button class="btn btn-secondary" onclick="triggerImport()" style="padding:6px 12px;font-size:12.5px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+          Import CSV
+        </button>
+        <button class="btn btn-secondary" onclick="exportCSV()" style="padding:6px 12px;font-size:12.5px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+      </div>
+    </div>
+    <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="importCSV(event)">
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Student Name</th><th>Reg. Number</th><th>Course</th><th>Year</th>
+            <th>From Center</th><th>Given to Student</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- Student Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnBackdrop(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Add Student</div>
+      <button class="modal-close" onclick="closeModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field"><label>Full Name *</label><input type="text" id="fName" placeholder="e.g. Ahmed Hassan"></div>
+        <div class="field"><label>Registration Number *</label><input type="text" id="fReg" placeholder="e.g. 2021-CS-001"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Course / Program</label><input type="text" id="fCourse" placeholder="e.g. BSc Computer Science"></div>
+        <div class="field"><label>Graduation Year</label><input type="text" id="fYear" placeholder="e.g. 2024"></div>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info"><span>Received from Center</span><small>Certificate collected from the issuing center</small></div>
+        <label class="toggle"><input type="checkbox" id="fReceived" onchange="syncDateFields()"><div class="toggle-track"></div></label>
+      </div>
+      <div class="field" id="fReceivedDateWrap" style="display:none">
+        <label>Date Received from Center</label><input type="date" id="fReceivedDate">
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-info"><span>Given to Student</span><small>Certificate handed over to the student</small></div>
+        <label class="toggle"><input type="checkbox" id="fGiven" onchange="syncDateFields()"><div class="toggle-track"></div></label>
+      </div>
+      <div class="field" id="fGivenDateWrap" style="display:none">
+        <label>Date Given to Student</label><input type="date" id="fGivenDate">
+      </div>
+      <div class="field"><label>Notes</label><textarea id="fNotes" placeholder="Any extra information…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStudent()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+  <span id="toastMsg">Saved!</span>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw-dJequ3gLWR_oEu8cZLWgarvCG8Lwgesy_gVBgt37Ns9TXWyNU6uSsi3rCw8FoXT70w/exec';
+
+// ── Storage ───────────────────────────────────────────────
+const STORAGE_KEY = 'cert_tracker_students';
+let allStudents = [], currentFilter = 'all', editingId = null;
+let searchQuery = '', searchTimeout, nextId = 1;
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) { const d=JSON.parse(raw); allStudents=d.students||[]; nextId=d.nextId||(allStudents.length?Math.max(...allStudents.map(s=>s.id))+1:1); }
+  } catch(e) { allStudents=[]; }
+}
+function saveToStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({students:allStudents, nextId}));
+}
+
+// ── Stats ─────────────────────────────────────────────────
+function loadStats() {
+  document.getElementById('statTotal').textContent = allStudents.length;
+  document.getElementById('statReceived').textContent = allStudents.filter(s=>s.received_from_center).length;
+  document.getElementById('statPending').textContent = allStudents.filter(s=>s.received_from_center&&!s.given_to_student).length;
+  document.getElementById('statGiven').textContent = allStudents.filter(s=>s.given_to_student).length;
+}
+
+// ── Filter ────────────────────────────────────────────────
+function setFilter(f,el) {
+  currentFilter=f;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active'); renderTable();
+}
+function onSearch(v) { clearTimeout(searchTimeout); searchQuery=v.trim().toLowerCase(); searchTimeout=setTimeout(renderTable,200); }
+function getFiltered() {
+  let list=allStudents;
+  if(searchQuery) list=list.filter(s=>s.name.toLowerCase().includes(searchQuery)||s.reg_number.toLowerCase().includes(searchQuery));
+  if(currentFilter==='not_received') list=list.filter(s=>!s.received_from_center);
+  else if(currentFilter==='received_only') list=list.filter(s=>s.received_from_center&&!s.given_to_student);
+  else if(currentFilter==='fully_done') list=list.filter(s=>s.received_from_center&&s.given_to_student);
+  return list;
+}
+
+// ── Render ────────────────────────────────────────────────
+function renderTable() {
+  const tbody=document.getElementById('tableBody');
+  const filtered=getFiltered();
+  document.getElementById('rowCount').textContent=filtered.length+' record'+(filtered.length!==1?'s':'');
+  if(!filtered.length){
+    tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <p>${allStudents.length===0?'No students yet. Click "Add Student" to get started.':'No students match your search.'}</p>
+    </div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML=filtered.map(s=>{
+    const rb=s.received_from_center?`<span class="badge badge-yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Yes</span>`:`<span class="badge badge-no">No</span>`;
+    const gb=s.given_to_student?`<span class="badge badge-yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Yes</span>`:s.received_from_center?`<span class="badge badge-pending">Pending</span>`:`<span class="badge badge-no">No</span>`;
+    return `<tr>
+      <td class="td-name">${esc(s.name)}</td><td class="td-reg">${esc(s.reg_number)}</td>
+      <td>${esc(s.course||'—')}</td><td>${esc(s.graduation_year||'—')}</td>
+      <td>${rb}</td><td>${gb}</td>
+      <td><div class="row-actions">
+        <button class="icon-btn" onclick="openEditModal(${s.id})" title="Edit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="icon-btn del" onclick="deleteStudent(${s.id})" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+        </button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Modal ─────────────────────────────────────────────────
+function openAddModal(){editingId=null;document.getElementById('modalTitle').textContent='Add Student';clearForm();document.getElementById('modalOverlay').classList.add('open');}
+function openEditModal(id){
+  const s=allStudents.find(x=>x.id===id);if(!s)return;
+  editingId=id;document.getElementById('modalTitle').textContent='Edit Student';
+  document.getElementById('fName').value=s.name||'';document.getElementById('fReg').value=s.reg_number||'';
+  document.getElementById('fCourse').value=s.course||'';document.getElementById('fYear').value=s.graduation_year||'';
+  document.getElementById('fReceived').checked=!!s.received_from_center;document.getElementById('fGiven').checked=!!s.given_to_student;
+  document.getElementById('fReceivedDate').value=s.received_date||'';document.getElementById('fGivenDate').value=s.given_date||'';
+  document.getElementById('fNotes').value=s.notes||'';syncDateFields();
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
+function closeModalOnBackdrop(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
+function clearForm(){
+  ['fName','fReg','fCourse','fYear','fReceivedDate','fGivenDate','fNotes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fReceived').checked=false;document.getElementById('fGiven').checked=false;syncDateFields();
+}
+function syncDateFields(){
+  document.getElementById('fReceivedDateWrap').style.display=document.getElementById('fReceived').checked?'':'none';
+  document.getElementById('fGivenDateWrap').style.display=document.getElementById('fGiven').checked?'':'none';
+}
+function saveStudent(){
+  const name=document.getElementById('fName').value.trim(),reg=document.getElementById('fReg').value.trim();
+  if(!name||!reg){alert('Name and Registration Number are required.');return;}
+  const data={name,reg_number:reg,course:document.getElementById('fCourse').value.trim()||'',graduation_year:document.getElementById('fYear').value.trim()||'',received_from_center:document.getElementById('fReceived').checked,given_to_student:document.getElementById('fGiven').checked,received_date:document.getElementById('fReceivedDate').value||'',given_date:document.getElementById('fGivenDate').value||'',notes:document.getElementById('fNotes').value.trim()||''};
+  if(editingId){const idx=allStudents.findIndex(s=>s.id===editingId);if(idx!==-1)allStudents[idx]={...allStudents[idx],...data};showToast('Student updated!');}
+  else{if(allStudents.find(s=>s.reg_number.toLowerCase()===reg.toLowerCase())){alert('Registration number already exists.');return;}allStudents.push({id:nextId++,...data});showToast('Student added!');}
+  saveToStorage();renderTable();loadStats();closeModal();
+}
+function deleteStudent(id){
+  if(!confirm('Delete this record? Cannot be undone.'))return;
+  allStudents=allStudents.filter(s=>s.id!==id);saveToStorage();renderTable();loadStats();showToast('Record deleted.');
+}
+
+// ── Export CSV ────────────────────────────────────────────
+function exportCSV(){
+  const filtered=getFiltered();if(!filtered.length){alert('No records to export.');return;}
+  const headers=['Name','Registration Number','Course','Graduation Year','Received from Center','Date Received','Given to Student','Date Given','Notes'];
+  const rows=filtered.map(s=>[s.name,s.reg_number,s.course,s.graduation_year,s.received_from_center?'Yes':'No',s.received_date||'',s.given_to_student?'Yes':'No',s.given_date||'',s.notes||''].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([[headers.join(','),...rows].join('\n')],{type:'text/csv'}));
+  a.download='certificates_'+new Date().toISOString().slice(0,10)+'.csv';a.click();showToast('CSV exported!');
+}
+
+// ── Import CSV ────────────────────────────────────────────
+function triggerImport(){document.getElementById('csvFileInput').click();}
+function importCSV(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    const lines=ev.target.result.split('\n').filter(l=>l.trim());
+    if(lines.length<2){alert('CSV file seems empty or invalid.');return;}
+    const headers=parseCSVLine(lines[0]).map(h=>h.toLowerCase().trim());
+    let imported=0,skipped=0;
+    for(let i=1;i<lines.length;i++){
+      const cols=parseCSVLine(lines[i]);if(cols.length<2)continue;
+      const row={};headers.forEach((h,idx)=>row[h]=cols[idx]||'');
+      const name=(row['name']||row['student name']||row['full name']||'').trim();
+      const reg=(row['registration number']||row['reg. number']||row['reg number']||'').trim();
+      if(!name||!reg){skipped++;continue;}
+      if(allStudents.find(s=>s.reg_number.toLowerCase()===reg.toLowerCase())){skipped++;continue;}
+      allStudents.push({id:nextId++,name,reg_number:reg,course:(row['course']||'').trim(),graduation_year:(row['graduation year']||'').trim(),received_from_center:(row['received from center']||'').toLowerCase()==='yes',given_to_student:(row['given to student']||'').toLowerCase()==='yes',received_date:(row['date received']||'').trim(),given_date:(row['date given']||'').trim(),notes:(row['notes']||'').trim()});
+      imported++;
+    }
+    saveToStorage();renderTable();loadStats();
+    showToast(`Imported ${imported} records${skipped?' ('+skipped+' skipped)':''}`);
+    e.target.value='';
+  };
+  reader.readAsText(file);
+}
+function parseCSVLine(line){
+  const result=[];let cur='',inQ=false;
+  for(let i=0;i<line.length;i++){
+    if(line[i]==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}
+    else if(line[i]===','&&!inQ){result.push(cur.trim());cur='';}
+    else cur+=line[i];
+  }
+  result.push(cur.trim());return result;
+}
+
+// ── Google Sheets Sync ────────────────────────────────────
+async function syncToSheets(){
+  const icon=document.getElementById('syncIcon');
+  const status=document.getElementById('syncStatus');
+  icon.classList.add('spinning');
+  status.textContent='Saving...';
+  try{
+    const payload={students:allStudents,nextId,savedAt:new Date().toISOString()};
+    const res=await fetch(APPS_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'save',payload})});
+    const data=await res.json();
+    if(data.success){
+      status.textContent='Last saved: '+new Date().toLocaleTimeString();
+      showToast('Saved to Google Sheets!');
+    } else { throw new Error(data.error||'Unknown error'); }
+  }catch(err){
+    status.textContent='Save failed';
+    showToast('Save failed: '+err.message,'error');
+  }
+  icon.classList.remove('spinning');
+}
+
+async function loadFromSheets(){
+  const status=document.getElementById('syncStatus');
+  status.textContent='Loading...';
+  try{
+    const res=await fetch(APPS_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'load'})});
+    const data=await res.json();
+    if(data.students){
+      if(!confirm(`Load ${data.students.length} records from Google Sheets? This will replace your current local data.`))return;
+      allStudents=data.students;nextId=data.nextId||allStudents.length+1;
+      saveToStorage();renderTable();loadStats();
+      status.textContent='Loaded: '+new Date().toLocaleTimeString();
+      showToast('Loaded from Google Sheets!');
+    } else if(data.error){ throw new Error(data.error); }
+    else { showToast('No backup found in Sheets yet.','error'); status.textContent='No backup found'; }
+  }catch(err){
+    status.textContent='Load failed';
+    showToast('Load failed: '+err.message,'error');
+  }
+}
+
+// ── Utils ─────────────────────────────────────────────────
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');document.getElementById('toastMsg').textContent=msg;
+  t.className='toast'+(type?' '+type:'');t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+function esc(str){return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── Init ──────────────────────────────────────────────────
+loadFromStorage();
+renderTable();
+loadStats();
+</script>
+</body>
+</html>
