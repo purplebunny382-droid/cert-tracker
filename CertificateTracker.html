@@ -424,8 +424,9 @@ async function syncToSheets(){
   icon.classList.add('spinning');
   status.textContent='Saving...';
   try{
-    const payload={students:allStudents,nextId,savedAt:new Date().toISOString()};
-    const res=await fetch(APPS_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'save',payload})});
+    const payload=JSON.stringify({students:allStudents,nextId,savedAt:new Date().toISOString()});
+    const url=APPS_SCRIPT_URL+'?action=save&payload='+encodeURIComponent(payload);
+    const res=await fetch(url);
     const data=await res.json();
     if(data.success){
       status.textContent='Last saved: '+new Date().toLocaleTimeString();
@@ -442,8 +443,10 @@ async function loadFromSheets(){
   const status=document.getElementById('syncStatus');
   status.textContent='Loading...';
   try{
-    const res=await fetch(APPS_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'load'})});
-    const data=await res.json();
+    const url=APPS_SCRIPT_URL+'?action=load';
+    const res=await fetch(url);
+    const text=await res.text();
+    const data=JSON.parse(text);
     if(data.students){
       if(!confirm(`Load ${data.students.length} records from Google Sheets? This will replace your current local data.`))return;
       allStudents=data.students;nextId=data.nextId||allStudents.length+1;
