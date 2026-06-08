@@ -205,7 +205,7 @@
         <thead>
           <tr>
             <th>Student Name</th><th>Reg. Number</th><th>Course</th><th>Year</th>
-            <th>From Center</th><th>Given to Student</th><th>Actions</th>
+            <th>From Center</th><th>Given to Student</th><th>Notes</th><th>Actions</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -312,7 +312,7 @@ function renderTable() {
   const filtered=getFiltered();
   document.getElementById('rowCount').textContent=filtered.length+' record'+(filtered.length!==1?'s':'');
   if(!filtered.length){
-    tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state">
+    tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
       <p>${allStudents.length===0?'No students yet. Click "Add Student" to get started.':'No students match your search.'}</p>
     </div></td></tr>`;
@@ -321,10 +321,12 @@ function renderTable() {
   tbody.innerHTML=filtered.map(s=>{
     const rb=s.received_from_center?`<span class="badge badge-yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Yes</span>`:`<span class="badge badge-no">No</span>`;
     const gb=s.given_to_student?`<span class="badge badge-yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Yes</span>`:s.received_from_center?`<span class="badge badge-pending">Pending</span>`:`<span class="badge badge-no">No</span>`;
+    const notesBadge=s.notes?`<span class="badge" style="background:rgba(59,130,246,0.12);color:var(--blue);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle;" title="${esc(s.notes)}">${esc(s.notes)}</span>`:`<span style="color:var(--muted);font-size:12px;">—</span>`;
     return `<tr>
       <td class="td-name">${esc(s.name)}</td><td class="td-reg">${esc(s.reg_number)}</td>
       <td>${esc(s.course||'—')}</td><td>${esc(s.graduation_year||'—')}</td>
       <td>${rb}</td><td>${gb}</td>
+      <td>${notesBadge}</td>
       <td><div class="row-actions">
         <button class="icon-btn" onclick="openEditModal(${s.id})" title="Edit">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
